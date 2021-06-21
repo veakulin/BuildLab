@@ -1,5 +1,5 @@
 ﻿param (
-    [string]$buildDir = "."
+    [string]$buildDirParam = "."
 )
 
 $ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop
@@ -11,7 +11,7 @@ $githubApi  = "https://api.github.com/repos/$owner/$repo"
 $branch     = "main"
 $commit     = "$owner-$repo-$(((Invoke-WebRequest -Headers $headers -Uri "$githubApi/branches/$branch" | ConvertFrom-Json).commit.sha).Substring(0, 7))"
 
-$buildDir         = Resolve-Path $buildDir
+$buildDir         = Resolve-Path $buildDirParam
 $commitDir        = "$buildDir\$commit" 
 $commitZipball    = "$buildDir\$commit.zip" 
 $srcDir           = "$buildDir\src"
