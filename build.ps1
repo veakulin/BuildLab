@@ -33,15 +33,21 @@ Invoke-WebRequest -Headers $headers -Uri "$githubApi/zipball/$branch" -OutFile $
 Expand-Archive -Path $commitZipball -DestinationPath $buildDir -Force
 Rename-Item -Path $commitDir -NewName $srcDir
 
-# Настраиваем проекты с помощью файлов .targets
-"<Project><PropertyGroup Condition=`"'`$(Configuration)|`$(Platform)'=='Release|Win32'`"><OutDir>$CPPAppBinDir\x86\</OutDir></PropertyGroup><PropertyGroup Condition=`"'`$(Configuration)|`$(Platform)'=='Release|x64'`"><OutDir>$CPPAppBinDir\x64\</OutDir></PropertyGroup><ItemDefinitionGroup Condition=`"'`$(Configuration)'=='Release'`"><ClCompile><DebugInformationFormat>ProgramDatabase</DebugInformationFormat></ClCompile><Link><GenerateDebugInformation>true</GenerateDebugInformation></Link></ItemDefinitionGroup></Project>" | Out-File -FilePath "$CPPAppSrcDir\Directory.Build.targets"
-"<Project><PropertyGroup Condition=`" '`$(Configuration)|`$(Platform)' == 'Release|AnyCPU' `"><DebugType>pdbonly</DebugType></PropertyGroup></Project>" | Out-File -FilePath "$CSLibSrcDir\Directory.Build.targets"
-"<Project><PropertyGroup Condition=`" '`$(Configuration)|`$(Platform)' == 'Release|AnyCPU' `"><DebugType>pdbonly</DebugType><OutDir>$CSAppBinDir\</OutDir></PropertyGroup></Project>" | Out-File -FilePath "$CSAppSrcDir\Directory.Build.targets"
+# Настраиваем проект CPPApp с помощью файла Directory.Build.targets
+([xml]"<Project><PropertyGroup Condition=`"'`$(Configuration)|`$(Platform)'=='Release|Win32'`"><OutDir>$CPPAppBinDir\x86\</OutDir></PropertyGroup><PropertyGroup Condition=`"'`$(Configuration)|`$(Platform)'=='Release|x64'`"><OutDir>$CPPAppBinDir\x64\</OutDir></PropertyGroup><ItemDefinitionGroup Condition=`"'`$(Configuration)'=='Release'`"><ClCompile><DebugInformationFormat>ProgramDatabase</DebugInformationFormat></ClCompile><Link><GenerateDebugInformation>true</GenerateDebugInformation></Link></ItemDefinitionGroup></Project>").Save("$CPPAppSrcDir\Directory.Build.targets")
+([xml]"<Project><PropertyGroup Condition=`"'`$(Configuration)|`$(Platform)'=='Release|AnyCPU'`"><DebugType>pdbonly</DebugType></PropertyGroup></Project>").Save("$CSLibSrcDir\Directory.Build.targets")
+([xml]"<Project><PropertyGroup Condition=`"'`$(Configuration)|`$(Platform)'=='Release|AnyCPU'`"><DebugType>pdbonly</DebugType><OutDir>$CSAppBinDir\</OutDir></PropertyGroup></Project>").Save("$CSAppSrcDir\Directory.Build.targets")
 
-# Собираем
+# Собираем CPPApp в двух вариантах
 msbuild $CPPAppSrcDir /p:Configuration=Release,Platform=Win32
-msbuild $CPPAppSrcDir /p:Configuration=Release,Platform=x64
-msbuild $CSAppSrcDir /p:Configuration=Release
+msbuild $CPPAppSrcDir /p:Configuration=Release,Platform=x64 
+
+# DebugType специально указан глобально, хотя он также определён в файле Directory.Build.targets
+# Если не определить его в командной строке, то в логах будет написано, что значение DebugType переопределено из файла Directory.Build.targets и теперь оно равно pdbonly
+# Но при этом файлы .pdb не копируются в выходной каталог
+# Хотя, например, параметр OutDir из .targets работает нормально
+# Пока непонятно в чём проблема
+msbuild $CSAppSrcDir /p:Configuration=Release,DebugType=pdbonly
 
 # Перемещаем символы
 xcopy $binDir\*.pdb $pdbDir\ /syq
